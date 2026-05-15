@@ -1,0 +1,8 @@
+module joy_data {
+  struct JoyData {
+    sequence<float> axes;
+    sequence<long> buttons;
+    unsigned long long timestamp_ns;
+    string<32> frame_id;
+  };
+};

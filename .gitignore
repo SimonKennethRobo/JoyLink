@@ -2,8 +2,11 @@
 refers
 tmp
 build
+build-*/
 devel
 run
 log
 logs
 **__pycache__
+.claude
+third_party/

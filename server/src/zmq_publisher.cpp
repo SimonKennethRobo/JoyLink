@@ -57,7 +57,6 @@ void ZmqPublisher::publish(const JoystickData& data) {
 
   std::string body = json.str();
 
-  // Multi-part PUB-SUB: topic frame, then data frame
   impl_->sock.send(zmq::const_buffer(impl_->frame_id.data(), impl_->frame_id.size()),
                    zmq::send_flags::sndmore);
   impl_->sock.send(zmq::const_buffer(body.data(), body.size()), zmq::send_flags::none);

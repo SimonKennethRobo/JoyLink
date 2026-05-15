@@ -6,16 +6,18 @@ joylink:
   sticky_buttons: false
   publish_rate: 50.0
   coalesce_interval: 0.001
-  debug_raw: false # Set to true to print raw channel indices for key mapping
   frame_id: "joy"
 
-  publisher_type: "zmq"
+  publisher_type: "dds"
 
   ros2:
     topic: "joy"
 
   zmq:
     address: "tcp://*:5555"
+
+  dds:
+    topic: "JoyData"
 
   button_mapping:
     # Set to -1 to disable a logical button (excluded from mapped output)

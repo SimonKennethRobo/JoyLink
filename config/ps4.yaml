@@ -12,7 +12,7 @@
 # Note: PS4 L2/R2 report as both axes (analog) AND buttons 6/7 (digital).
 #       This config treats them as analog axes.
 
-joystick_server:
+joylink:
   device: "/dev/input/js0"
   device_name: ""  # "Wireless Controller" for PS4, "DualSense Wireless Controller" for PS5
 

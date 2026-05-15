@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace joystick_server {
+namespace joystick_common {
 
 // ── Joystick data published to consumers ───────────────────────────
 struct JoystickData {
@@ -45,7 +45,7 @@ struct AxisMapping {
 };
 
 // ── Full server configuration ──────────────────────────────────────
-enum class PublisherType { ROS2, ZMQ };
+enum class PublisherType { ROS2, ZMQ, DDS };
 
 struct JoystickConfig {
   // Device
@@ -56,20 +56,26 @@ struct JoystickConfig {
   ButtonMapping button_map;
   AxisMapping axis_map;
 
+  // Sign / inversion (physical channel index → reverse/invert)
+  std::vector<int> axis_reverse;    // Multiply axis value by -1
+  std::vector<int> button_invert;   // Invert button state (0↔1)
+
   // Processing
   double deadzone = 0.05;
   bool sticky_buttons = false;
   double publish_rate = 50.0;     // Hz
   double coalesce_interval = 0.001;  // seconds, 0=disabled
+  bool debug_raw = false;  // Print raw channel data for key mapping
 
   // Publisher
   PublisherType publisher_type = PublisherType::ROS2;
   std::string ros2_topic = "joy";
   std::string zmq_address = "tcp://*:5555";
+  std::string dds_topic = "JoyData";
   std::string frame_id = "joy";
 
   // Print loaded config to stdout
   void print() const;
 };
 
-}  // namespace joystick_server
+}  // namespace joystick_common

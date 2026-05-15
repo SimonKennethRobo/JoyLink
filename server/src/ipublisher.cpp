@@ -9,6 +9,9 @@
 #ifdef HAS_ZMQ
 #include "joystick_server/zmq_publisher.h"
 #endif
+#ifdef HAS_DDS
+#include "joystick_server/dds_publisher.h"
+#endif
 
 namespace joystick_server {
 
@@ -26,6 +29,13 @@ std::unique_ptr<IPublisher> createPublisher(const JoystickConfig& config) {
       return std::make_unique<ZmqPublisher>();
 #else
       throw std::runtime_error("ZMQ support not compiled in. Rebuild with BUILD_ZMQ=ON.");
+#endif
+    }
+    case PublisherType::DDS: {
+#ifdef HAS_DDS
+      return std::make_unique<DdsPublisher>();
+#else
+      throw std::runtime_error("DDS support not compiled in. Rebuild with BUILD_DDS=ON.");
 #endif
     }
   }

@@ -1,134 +1,275 @@
-# JoystickServer 架构与设计说明
+# JoyLink Design
 
-## 概览
+This document describes the current architecture of `JoyLink` after the
+include/source split into `common`, `server`, and `client`.
 
+## Goals
+
+- Keep Linux joystick input handling small, direct, and low-latency.
+- Let the same normalized joystick stream feed ROS 2, ZMQ, or DDS consumers.
+- Keep shared configuration and semantic mapping reusable by both server and
+  client code.
+- Keep backend dependencies optional at compile time.
+
+## High-Level Architecture
+
+```text
+/dev/input/js*
+      |
+      v
+server/src/joystick_device.cpp
+      |
+      v
+server/src/main.cpp
+  - event loop
+  - deadzone processing
+  - button/axis state
+  - coalescing and autorepeat
+      |
+      v
+JoyLink publisher interface
+      |
+      +--> ROS 2 publisher -> sensor_msgs::msg::Joy
+      +--> ZMQ publisher   -> multipart JSON PUB/SUB
+      +--> DDS publisher   -> joy_data::JoyData
+
+common/
+  - YAML config parser
+  - shared data types
+  - semantic joystick mapper
+
+client/
+  - ZMQ C++ receive/mapping library
+  - ZMQ example subscriber
+  - Python client examples
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                         main.cpp                             │
-│              (主循环: select + 定时发布 + 统计)               │
-├──────────────────┬────────────────────┬──────────────────────┤
-│  JoystickDevice  │   IPublisher       │   JoystickConfig     │
-│  /dev/input/js*  │   (抽象接口)        │   (YAML配置)         │
-│  Linux joystick  ├────────┬───────────┤                      │
-│  API             │ ROS2   │ ZMQ       │   yaml-cpp          │
-│                  │ Pub    │ Pub       │                      │
-└──────────────────┴────────┴───────────┴──────────────────────┘
-```
 
-## 模块设计
+## Module Boundaries
 
-### 1. JoystickDevice — 设备读取层
+### `joystick_common`
 
-**文件**: `joystick_device.h/cpp`
+Files:
 
-封装 Linux joystick API (`linux/joystick.h`)，直接读取 `/dev/input/js*` 字符设备：
+- `include/joystick_common/types.h`
+- `include/joystick_common/config_parser.h`
+- `include/joystick_common/joystick_mapper.h`
+- `common/src/config_parser.cpp`
+- `common/src/joystick_mapper.cpp`
 
-- `open(config)`: 打开设备，读取名称和capabilities（轴数/按钮数）。采用 ROS `joy_linux_node` 的双次open技巧规避内核驱动bug（初始事件为上次关闭时的状态而非当前状态）
-- `readEvent(event, timeout_ms)`: 基于 `select()+read()` 的阻塞/超时读取，返回 `js_event` 原始结构体
-- `findDeviceByName(name)`: 遍历 `/dev/input/js*`，通过 `JSIOCGNAME` ioctl 匹配设备名，支持热插拔前的设备发现
+`joystick_common` owns data structures and logic that are valid on both sides of
+the transport boundary:
 
-**设计要点**：
-- 所有错误通过 `std::atomic<bool> error_` 标记，主循环可检测设备断开
-- timeout_ms = 0 为非阻塞，-1 为永久阻塞
-- 相比SDL方案，零额外依赖，延迟更低
+- `JoystickData`: raw channel-indexed axes/buttons plus monotonic timestamp.
+- `JoystickConfig`: device, processing, backend, and mapping configuration.
+- `JoystickMapper`: converts raw physical channel arrays into named logical
+  maps such as `left_stick_x`, `right_trigger`, and `a`.
+- YAML parsing through `loadConfig()`.
 
-### 2. IPublisher — 发布抽象层
+The server publishes raw channel arrays. Consumers can apply the same mapping
+configuration locally, which keeps the transport payload compact and preserves
+access to raw data when needed.
 
-**文件**: `ipublisher.h`, `ros2_publisher.h/cpp`, `zmq_publisher.h/cpp`
+### `joylink_core`
 
-策略模式，`createPublisher(config)` 根据 `publisher_type` 返回对应实现：
+Files:
 
-#### ROS2 Publisher
-- 内部创建独立 `rclcpp::Node` 和 `SingleThreadedExecutor`
-- 发布 `sensor_msgs::msg::Joy`（兼容 ROS 生态）
-- `spinOnce()`: 每帧调用 `executor->spin_some()`，处理订阅回调和反馈
-- 使用 `RCL_STEADY_TIME` 作为时间戳时钟源
+- `server/include/joystick_server/joystick_device.h`
+- `server/src/joystick_device.cpp`
 
-#### ZMQ Publisher
-- PUB-SUB 模式，bind 到配置的地址（如 `tcp://*:5555`）
-- 多帧发送：topic 帧 + JSON 负载帧，支持订阅者按 topic 过滤
-- JSON格式：`{"frame_id":"joy","ts_ns":...,"axes":[...],"buttons":[...]}`
-- 设置 `linger=0`，关闭时立即释放端口
+`joylink_core` is server-only. It wraps the Linux joystick API and owns:
 
-### 3. JoystickConfig — 配置层
+- opening `/dev/input/js*`
+- optional device lookup by name
+- querying device name, button count, and axis count
+- reading `js_event` with `select()` based timeout handling
+- detecting device errors/disconnects
 
-**文件**: `config_parser.h/cpp`, `types.h`
+The implementation intentionally uses the Linux joystick API directly instead
+of SDL, keeping runtime dependencies and latency low.
 
-YAML配置结构：
+### `joylink`
 
-| 配置项 | 说明 |
-|--------|------|
-| `device` | 设备路径，默认 `/dev/input/js0` |
-| `device_name` | 设备名，非空时自动搜索匹配 |
-| `deadzone` | 死区 [0, 1)，默认 0.05 |
-| `publish_rate` | 发布频率 Hz，默认 50 |
-| `coalesce_interval` | 事件合并窗口秒，默认 0.001 |
-| `sticky_buttons` | toggle模式按钮 |
-| `publisher_type` | `"ros2"` 或 `"zmq"` |
-| `button_mapping` | 12个逻辑按钮 → 物理索引映射 |
-| `axes_mapping` | 8个逻辑轴 → 物理索引映射 |
+Files:
 
-支持的逻辑按钮: `a, b, x, y, lb, rb, back, start, guide, left_stick, right_stick, touchpad`
-支持的逻辑轴: `left_stick_x, left_stick_y, left_trigger, right_stick_x, right_stick_y, right_trigger, dpad_x, dpad_y`
+- `server/src/main.cpp`
+- `server/include/joystick_server/ipublisher.h`
+- `server/include/joystick_server/*_publisher.h`
+- `server/src/ipublisher.cpp`
+- `server/src/*_publisher.cpp`
 
-### 4. main.cpp — 主事件循环
+The executable owns the runtime event loop:
 
-```
-while (running):
-    publisher->spinOnce()          // ROS2 executor
-    timeout = calcSelectTimeout()  // 基于 publish_rate 和 coalesce
-    if (device.readEvent(timeout)):
-        ├─ JS_EVENT_BUTTON → 更新 buttons[]
-        └─ JS_EVENT_AXIS  → 死区 + 归一化 → 更新 axes[]
-    if (publish_due):
+```text
+while running:
+    publisher->spinOnce()
+    timeout = next publish/coalesce deadline
+    if device.readEvent(timeout):
+        update raw button/axis state
+    if publish is due:
         publisher->publish(data)
 ```
 
-**死区处理** (`applyDeadzone`):
+Processing behavior:
+
+- Axis values are normalized to `[-1.0, 1.0]`.
+- Deadzone is applied with linear rescaling outside the deadzone.
+- `axis_reverse` multiplies selected physical axes by `-1`.
+- `button_invert` flips selected physical button states.
+- `sticky_buttons` can turn button presses into toggle-style state changes.
+- `coalesce_interval` batches bursts of input events before publishing.
+- `publish_rate` provides autorepeat heartbeats even when no new event arrives.
+
+### Publisher Backends
+
+The publisher interface is selected from `JoystickConfig::publisher_type`:
+
+- `ROS2`: publishes `sensor_msgs::msg::Joy` to `ros2.topic`.
+- `ZMQ`: binds `zmq.address` and sends a two-frame PUB message:
+  topic frame plus JSON payload.
+- `DDS`: publishes `joy_data::JoyData` on `dds.topic` using CycloneDDS-CXX.
+
+Each backend is guarded by compile definitions:
+
+- `HAS_ROS2`
+- `HAS_ZMQ`
+- `HAS_DDS`
+
+If the YAML requests a backend that was not compiled in, `createPublisher()`
+throws a runtime error with the matching rebuild option.
+
+### `joystick_client`
+
+Files:
+
+- `client/include/joystick_client/joystick_client.h`
+- `client/src/joystick_client.cpp`
+- `client/examples/zmq_subscriber.cpp`
+- `client/python/`
+
+The C++ client currently targets the ZMQ transport. It loads the same YAML
+configuration, connects to the configured ZMQ endpoint, receives raw messages,
+and can return either:
+
+- `joystick_common::JoystickData` through `receiveRaw()`
+- `joystick_common::MappedJoystickData` through `receive()`
+
+Python clients are intentionally lightweight examples for scripting and quick
+integration tests.
+
+## Build Architecture
+
+Top-level CMake options:
+
+| Option | Default | Purpose |
+| ------ | ------- | ------- |
+| `BUILD_ZMQ` | `ON` | Build the ZMQ publisher and C++ client. |
+| `BUILD_ROS2` | `OFF` | Build the ROS 2 publisher when ROS 2 packages are available. |
+| `BUILD_DDS` | `OFF` | Build the DDS publisher and IDL-generated types. |
+| `FETCH_DDS_DEPS` | `ON` | Fetch/build CycloneDDS dependencies when DDS is requested. |
+| `FORCE_FETCH_DDS_DEPS` | `ON` | Use the `third_party` DDS build path instead of probing the system first. |
+| `CYCLONEDDS_VERSION` | `0.10.5` | Git tag used for both CycloneDDS repositories. |
+
+Target graph:
+
+```text
+yaml-cpp
+   |
+   v
+joystick_common
+   |
+   +--> joylink_core
+   |         |
+   |         v
+   |    joylink
+   |
+   +--> joystick_client  (when ZMQ is enabled)
+             |
+             v
+        joystick_client_example
 ```
-if |raw| < deadzone → 0
-else → sign(raw) * (|raw| - deadzone) / (1 - deadzone)
-```
-线性缩放,保证输出连续覆盖 [-1, 1]。
 
-**Coalesce 机制**：收到第一个事件后，等待 `coalesce_interval` 窗口收集后续事件，窗口关闭后一次发布。减少高速轴变化时的消息数。
+DDS dependencies are fetched into:
 
-**Autorepeat**：即使无新事件，到达 `1/publish_rate` 间隔后仍发布当前状态，保证下游有固定的数据心跳。
-
-**统计**：每5秒输出事件速率和发布速率。
-
-## 数据流
-
-```
-/dev/input/js0
-     │ js_event {time, value, type, number}
-     ▼
-JoystickDevice::readEvent()
-     │ raw (int16_t)
-     ▼
-main loop
-     │ applyDeadzone + clamp
-     ▼
-JoystickData {axes<float>, buttons<int32>, timestamp_ns}
-     │
-     ├─→ Ros2Publisher → sensor_msgs::msg::Joy → ROS2 topic
-     └─→ ZmqPublisher  → JSON (multi-part)     → ZMQ PUB socket (TCP)
+```text
+third_party/cyclonedds
+third_party/cyclonedds-cxx
 ```
 
-## 编译时配置
+and installed into each repository's local `install/` directory. Generated DDS
+sources are placed in the active build tree under `server/`.
 
-通过 CMake `target_compile_definitions` 控制：
-- `HAS_ROS2` — 编译 ROS2 publisher 及 `rclcpp::init/shutdown`
-- `HAS_ZMQ` — 编译 ZMQ publisher
+## Data Formats
 
-工厂函数 `createPublisher()` 在请求未编译的后端时抛出异常。
+### Internal Raw State
 
-## 对比参考实现
+```cpp
+struct JoystickData {
+  std::vector<float> axes;
+  std::vector<int32_t> buttons;
+  uint64_t timestamp_ns;
+};
+```
 
-| 特性 | ROS joy_linux | SDL joy | 本项目 |
-|------|--------------|---------|--------|
-| 依赖 | 仅Linux头文件 | SDL2 | yaml-cpp + (可选)ROS2/ZMQ |
-| 配置 | ROS参数 | ROS参数 | YAML文件 |
-| 发布 | 仅ROS2 | 仅ROS2 | ROS2 + ZMQ |
-| 手柄映射 | 无 | 无 | 品牌级键位映射 |
-| 设备发现 | 按名称 | 按名称/ID | 按名称 |
+### Semantic Mapped State
+
+`JoystickMapper` converts channel-indexed arrays into maps keyed by logical
+names:
+
+```cpp
+mapped.axes["left_stick_x"]
+mapped.axes["right_trigger"]
+mapped.buttons["a"]
+mapped.buttons["start"]
+```
+
+A mapping value of `-1` disables that logical entry.
+
+### ZMQ Payload
+
+ZMQ uses a multipart PUB message:
+
+```text
+frame 0: topic
+frame 1: JSON payload
+```
+
+Payload shape:
+
+```json
+{
+  "frame_id": "joy",
+  "ts_ns": 123456789,
+  "axes": [0.0, -0.5],
+  "buttons": [0, 1]
+}
+```
+
+### DDS Payload
+
+DDS uses `idl/JoystickData.idl` and CycloneDDS-CXX generated types. The topic
+name comes from `joylink.dds.topic`.
+
+## LAN DDS Notes
+
+For cross-machine DDS communication, all participating machines should use a
+compatible CycloneDDS configuration. `config/cyclonedds.xml` pins the network
+interface and enables multicast:
+
+```bash
+export CYCLONEDDS_URI=file://$PWD/config/cyclonedds.xml
+```
+
+Change the `<NetworkInterface name="..."/>` value to the real LAN interface on
+each machine, for example `eth0`, `enp3s0`, or `wlan0`.
+
+## Design Tradeoffs
+
+- Raw channel arrays are the transport contract; semantic names stay in shared
+  mapping code. This avoids expanding payloads and lets consumers choose raw or
+  mapped access.
+- Server-only headers live under `server/include/joystick_server`; shared API
+  headers live under `include/joystick_common`.
+- Backend implementations are optional and isolated behind `IPublisher`, so a
+  minimal ZMQ-only build does not require ROS 2 or DDS.
+- DDS dependencies are automated in CMake for reproducible local builds, while
+  `FORCE_FETCH_DDS_DEPS=OFF` keeps system installations usable.

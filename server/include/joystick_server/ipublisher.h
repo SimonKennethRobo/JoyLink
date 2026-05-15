@@ -2,12 +2,16 @@
 
 #include <memory>
 
-#include "joystick_server/types.h"
+#include "joystick_common/types.h"
 
 namespace joystick_server {
 
+using joystick_common::JoystickConfig;
+using joystick_common::JoystickData;
+using joystick_common::PublisherType;
+
 // Abstract interface for publishing joystick data.
-// Implementations: Ros2Publisher, ZmqPublisher.
+// Implementations: Ros2Publisher, ZmqPublisher, DdsPublisher.
 class IPublisher {
 public:
   virtual ~IPublisher() = default;

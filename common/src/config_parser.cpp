@@ -1,11 +1,11 @@
-#include "joystick_server/config_parser.h"
+#include "joystick_common/config_parser.h"
 
 #include <yaml-cpp/yaml.h>
 
 #include <iostream>
 #include <stdexcept>
 
-namespace joystick_server {
+namespace joystick_common {
 
 namespace {
 
@@ -70,9 +70,12 @@ JoystickConfig loadConfig(const std::string& yaml_path) {
     throw std::runtime_error("Failed to parse YAML config: " + std::string(e.what()));
   }
 
-  // Top-level key: "joystick_server" is optional
+  // Top-level key: "joylink" is preferred. "joystick_server" remains supported
+  // for older config files.
   YAML::Node js;
-  if (root["joystick_server"]) {
+  if (root["joylink"]) {
+    js = root["joylink"];
+  } else if (root["joystick_server"]) {
     js = root["joystick_server"];
   } else {
     js = root;  // Allow flat config without enclosing key
@@ -91,12 +94,15 @@ JoystickConfig loadConfig(const std::string& yaml_path) {
   config.sticky_buttons     = js["sticky_buttons"] ? js["sticky_buttons"].as<bool>() : false;
   config.publish_rate       = getDouble(js, "publish_rate", config.publish_rate);
   config.coalesce_interval  = getDouble(js, "coalesce_interval", config.coalesce_interval);
+  config.debug_raw          = js["debug_raw"] ? js["debug_raw"].as<bool>() : false;
   config.frame_id           = getStr(js, "frame_id", config.frame_id);
 
   // ── Publisher ───────────────────────────────────────
   std::string pub_type = getStr(js, "publisher_type", "ros2");
   if (pub_type == "zmq") {
     config.publisher_type = PublisherType::ZMQ;
+  } else if (pub_type == "dds") {
+    config.publisher_type = PublisherType::DDS;
   } else {
     config.publisher_type = PublisherType::ROS2;
   }
@@ -113,17 +119,34 @@ JoystickConfig loadConfig(const std::string& yaml_path) {
     config.zmq_address = getStr(js["zmq"], "address", config.zmq_address);
   }
 
+  // DDS settings
+  if (js["dds"]) {
+    config.dds_topic = getStr(js["dds"], "topic", config.dds_topic);
+  }
+
   // ── Button mapping ──────────────────────────────────
   parseButtonMapping(js["button_mapping"], config.button_map);
 
   // ── Axis mapping ────────────────────────────────────
   parseAxisMapping(js["axes_mapping"], config.axis_map);
 
+  // ── Reverse / invert ────────────────────────────────
+  if (js["axis_reverse"] && js["axis_reverse"].IsSequence()) {
+    for (const auto& v : js["axis_reverse"])
+      config.axis_reverse.push_back(v.as<int>());
+  }
+  if (js["button_invert"] && js["button_invert"].IsSequence()) {
+    for (const auto& v : js["button_invert"])
+      config.button_invert.push_back(v.as<int>());
+  }
+
   return config;
 }
 
 void JoystickConfig::print() const {
-  const char* pub_name = (publisher_type == PublisherType::ROS2) ? "ROS2" : "ZMQ";
+  const char* pub_name = (publisher_type == PublisherType::ROS2) ? "ROS2"
+                         : (publisher_type == PublisherType::ZMQ) ? "ZMQ"
+                         : "DDS";
   std::cout << "╔══════════════════════════════════════════════╗\n"
             << "║         Joystick Server Configuration        ║\n"
             << "╠══════════════════════════════════════════════╣\n"
@@ -133,10 +156,20 @@ void JoystickConfig::print() const {
   std::cout << "║ Publisher      : " << pub_name << "\n"
             << "║ ROS2 topic     : " << ros2_topic << "\n"
             << "║ ZMQ address    : " << zmq_address << "\n"
+            << "║ DDS topic      : " << dds_topic << "\n"
             << "║ Publish rate   : " << publish_rate << " Hz\n"
             << "║ Deadzone       : " << deadzone << "\n"
             << "║ Coalesce(ms)   : " << coalesce_interval << "\n"
             << "║ Sticky buttons : " << (sticky_buttons ? "on" : "off") << "\n"
+            << "║ Debug raw      : " << (debug_raw ? "on" : "off") << "\n"
+            << "║ Axis reverse   : [";
+  for (size_t i = 0; i < axis_reverse.size(); ++i)
+    std::cout << (i ? " " : "") << axis_reverse[i];
+  std::cout << "]\n"
+            << "║ Button invert  : [";
+  for (size_t i = 0; i < button_invert.size(); ++i)
+    std::cout << (i ? " " : "") << button_invert[i];
+  std::cout << "]\n"
             << "║ Frame ID       : " << frame_id << "\n"
             << "╠══════════════════════════════════════════════╣\n"
             << "║ Button Mapping:                             ║\n"
@@ -165,4 +198,4 @@ void JoystickConfig::print() const {
             << std::endl;
 }
 
-}  // namespace joystick_server
+}  // namespace joystick_common

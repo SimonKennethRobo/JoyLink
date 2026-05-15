@@ -5,11 +5,13 @@
 #include <string>
 #include <vector>
 
-#include "joystick_server/types.h"
+#include "joystick_common/types.h"
 
 struct js_event;  // forward: defined in linux/joystick.h
 
 namespace joystick_server {
+
+using joystick_common::JoystickConfig;
 
 // Reads joystick events from /dev/input/js* using the Linux joystick API.
 //

@@ -6,7 +6,7 @@
 #   2. Note which button/axis index lights up for each physical control
 #   3. Copy this file and adjust the indices
 
-joystick_server:
+joylink:
   device: "/dev/input/js0"
   device_name: ""
 
@@ -25,6 +25,7 @@ joystick_server:
     address: "tcp://*:5555"
 
   button_mapping:
+    # Set to -1 to disable a logical button (excluded from mapped output)
     a: 0
     b: 1
     x: 2
@@ -39,6 +40,7 @@ joystick_server:
     touchpad: -1
 
   axes_mapping:
+    # Set to -1 to disable a logical axis (excluded from mapped output)
     left_stick_x: 0
     left_stick_y: 1
     left_trigger: 2

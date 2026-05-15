@@ -14,7 +14,7 @@ struct Ros2Publisher::Impl {
   std::string frame_id;
 
   Impl() {
-    node = std::make_shared<rclcpp::Node>("joystick_server");
+    node = std::make_shared<rclcpp::Node>("joylink");
     executor = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
     executor->add_node(node);
   }
