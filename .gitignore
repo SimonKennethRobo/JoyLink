@@ -1,0 +1,9 @@
+.vscode
+refers
+tmp
+build
+devel
+run
+log
+logs
+**__pycache__

@@ -1,0 +1,49 @@
+# Generic joystick — uses default Xbox-style mapping.
+# Works for most PC-compatible controllers (Logitech, 8BitDo, etc.)
+#
+# To use with a different controller brand:
+#   1. Run:  jstest /dev/input/js0
+#   2. Note which button/axis index lights up for each physical control
+#   3. Copy this file and adjust the indices
+
+joystick_server:
+  device: "/dev/input/js0"
+  device_name: ""
+
+  deadzone: 0.05
+  sticky_buttons: false
+  publish_rate: 50.0
+  coalesce_interval: 0.001
+  frame_id: "joy"
+
+  publisher_type: "ros2"
+
+  ros2:
+    topic: "joy"
+
+  zmq:
+    address: "tcp://*:5555"
+
+  button_mapping:
+    a: 0
+    b: 1
+    x: 2
+    y: 3
+    lb: 4
+    rb: 5
+    back: 6
+    start: 7
+    guide: 8
+    left_stick: 9
+    right_stick: 10
+    touchpad: -1
+
+  axes_mapping:
+    left_stick_x: 0
+    left_stick_y: 1
+    left_trigger: 2
+    right_stick_x: 3
+    right_stick_y: 4
+    right_trigger: 5
+    dpad_x: 6
+    dpad_y: 7

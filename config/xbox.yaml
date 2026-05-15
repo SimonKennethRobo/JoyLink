@@ -1,0 +1,56 @@
+# Xbox-style controller configuration
+# Tested with: Xbox One, Xbox 360, Xbox Series X/S
+#
+# Physical layout (standard Xbox):
+#   Left stick:  axes 0 (X), 1 (Y)
+#   Right stick: axes 3 (X), 4 (Y)
+#   Triggers:    axes 2 (LT), 5 (RT) — report as single axis each
+#   D-Pad:       axes 6 (X), 7 (Y)
+#   Buttons:     A=0, B=1, X=2, Y=3, LB=4, RB=5, Back=6, Start=7, Guide=8, LS=9, RS=10
+
+joystick_server:
+  # ── Device ──────────────────────────────────────────────
+  device: "/dev/input/js0"
+  device_name: ""  # Set to "Xbox Wireless Controller" to auto-discover
+
+  # ── Processing ──────────────────────────────────────────
+  deadzone: 0.05
+  sticky_buttons: false
+  publish_rate: 50.0          # Hz
+  coalesce_interval: 0.001    # seconds (0 = disabled)
+  frame_id: "joy"
+
+  # ── Publisher ───────────────────────────────────────────
+  publisher_type: "ros2"       # "ros2" or "zmq"
+
+  ros2:
+    topic: "joy"
+
+  zmq:
+    address: "tcp://*:5555"
+
+  # ── Button mapping: logical name → physical index ──────
+  button_mapping:
+    a: 0
+    b: 1
+    x: 2
+    y: 3
+    lb: 4
+    rb: 5
+    back: 6
+    start: 7
+    guide: 8
+    left_stick: 9
+    right_stick: 10
+    touchpad: -1              # Xbox has no touchpad
+
+  # ── Axis mapping: logical name → physical index ────────
+  axes_mapping:
+    left_stick_x: 0
+    left_stick_y: 1
+    left_trigger: 2
+    right_stick_x: 3
+    right_stick_y: 4
+    right_trigger: 5
+    dpad_x: 6
+    dpad_y: 7

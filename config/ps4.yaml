@@ -1,0 +1,55 @@
+# PS4/PS5 DualShock/DualSense controller configuration
+#
+# Physical layout (PS4 DualShock 4):
+#   Left stick:  axes 0 (X), 1 (Y)
+#   Right stick: axes 2 (X), 5 (Y)   — Note: non-contiguous!
+#   L2 trigger:  axis 3
+#   R2 trigger:  axis 4
+#   D-Pad:       axes 6 (X), 7 (Y)
+#   Buttons:     Square=0, X=1, O=2, Triangle=3, L1=4, R1=5, L2=6, R2=7,
+#                Share=8, Options=9, L3=10, R3=11, PS=12, Touchpad=13
+#
+# Note: PS4 L2/R2 report as both axes (analog) AND buttons 6/7 (digital).
+#       This config treats them as analog axes.
+
+joystick_server:
+  device: "/dev/input/js0"
+  device_name: ""  # "Wireless Controller" for PS4, "DualSense Wireless Controller" for PS5
+
+  deadzone: 0.05
+  sticky_buttons: false
+  publish_rate: 50.0
+  coalesce_interval: 0.001
+  frame_id: "joy"
+
+  publisher_type: "ros2"
+
+  ros2:
+    topic: "joy"
+
+  zmq:
+    address: "tcp://*:5555"
+
+  button_mapping:
+    a: 1           # Cross (X) → logical A
+    b: 2           # Circle (O) → logical B
+    x: 0           # Square → logical X
+    y: 3           # Triangle → logical Y
+    lb: 4          # L1
+    rb: 5          # R1
+    back: 8        # Share
+    start: 9       # Options
+    guide: 12      # PS button
+    left_stick: 10 # L3
+    right_stick: 11 # R3
+    touchpad: 13   # Touchpad click
+
+  axes_mapping:
+    left_stick_x: 0
+    left_stick_y: 1
+    left_trigger: 3
+    right_stick_x: 2
+    right_stick_y: 5
+    right_trigger: 4
+    dpad_x: 6
+    dpad_y: 7
