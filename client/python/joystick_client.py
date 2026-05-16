@@ -46,6 +46,11 @@ class JoystickClient:
         self._connected = False
         self._backend = None  # "zmq", "ros2", or "dds"
         self._impl = None
+        self._queue = deque()
+        self._cv = threading.Condition()
+        self._rx_thread = None
+        self._running = False
+        self._max_queue = 100
 
     # ── Connection ────────────────────────────────────────────────────
 
@@ -66,17 +71,19 @@ class JoystickClient:
         self._impl.connect()
         self._backend = self._publisher_type
         self._connected = True
+        self._start_receiver()
         return True
 
     def disconnect(self):
         if self._connected and self._impl:
+            self._stop_receiver()
             self._impl.disconnect()
             self._connected = False
 
     # ── Data access ───────────────────────────────────────────────────
 
     def receive(self, timeout_ms: int = 1000) -> dict | None:
-        """Blocking receive with timeout. Returns mapped dict or None on timeout.
+        """Blocking read from background queue with timeout.
 
         Return format:
             {
@@ -93,9 +100,9 @@ class JoystickClient:
 
     def receive_raw(self, timeout_ms: int = 1000) -> dict | None:
         """Receive raw data without mapping. Returns dict or None on timeout."""
-        if not self._connected or self._impl is None:
+        if not self._connected:
             return None
-        return self._impl.receive(timeout_ms)
+        return self._pop_queue(timeout_ms)
 
     # ── Helpers ────────────────────────────────────────────────────────
 
@@ -137,6 +144,57 @@ class JoystickClient:
 
     def __exit__(self, *args):
         self.close()
+
+    # ── Background receiver ─────────────────────────────────────────
+
+    def _start_receiver(self):
+        if self._running:
+            return
+        self._running = True
+        self._rx_thread = threading.Thread(target=self._recv_loop, daemon=True)
+        self._rx_thread.start()
+
+    def _stop_receiver(self):
+        if not self._running:
+            return
+        self._running = False
+        with self._cv:
+            self._cv.notify_all()
+        if self._rx_thread:
+            self._rx_thread.join(timeout=1.0)
+        self._rx_thread = None
+
+    def _recv_loop(self):
+        while self._running:
+            if not self._impl:
+                break
+            data = self._impl.receive(100)
+            if data is None:
+                continue
+            with self._cv:
+                if len(self._queue) >= self._max_queue:
+                    self._queue.popleft()
+                self._queue.append(data)
+                self._cv.notify()
+
+    def _pop_queue(self, timeout_ms: int) -> dict | None:
+        deadline = None
+        if timeout_ms >= 0:
+            deadline = time.monotonic() + timeout_ms / 1000.0
+
+        with self._cv:
+            while True:
+                if self._queue:
+                    return self._queue.popleft()
+                if timeout_ms == 0:
+                    return None
+                if deadline is None:
+                    self._cv.wait()
+                else:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return None
+                    self._cv.wait(timeout=remaining)
 
 
 # ═══════════════════════════════════════════════════════════════════════

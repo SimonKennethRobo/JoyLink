@@ -8,7 +8,7 @@ joylink:
   coalesce_interval: 0.001
   frame_id: "joy"
 
-  publisher_type: "dds"
+  publisher_type: "zmq"
 
   ros2:
     topic: "joy"

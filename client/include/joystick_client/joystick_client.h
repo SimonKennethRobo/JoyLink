@@ -40,7 +40,8 @@ public:
   bool isConnected() const;
 
   // ── Data access ─────────────────────────────────────────
-  // Blocking receive with timeout (ms). -1 = block forever, 0 = non-blocking.
+  // Blocking read from the background receive queue with timeout (ms).
+  // -1 = block forever, 0 = non-blocking.
   // Returns true if data was received.
   bool receive(joystick_common::MappedJoystickData& out, int timeout_ms = 1000);
 
