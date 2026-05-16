@@ -37,6 +37,8 @@ class JoystickClient:
         axs_cfg = js.get("axes_mapping", {})
         self._btn_map = {v: k for k, v in btn_cfg.items() if v >= 0}
         self._axis_map = {v: k for k, v in axs_cfg.items() if v >= 0}
+        self._button_invert = set(js.get("button_invert", []))
+        self._axis_reverse = set(js.get("axis_reverse", []))
 
         # Config for each backend
         self._ros2_topic = js.get("ros2", {}).get("topic", "joy")
@@ -112,11 +114,19 @@ class JoystickClient:
         buttons_list = raw.get("buttons", [])
 
         axes = {
-            name: (axes_list[idx] if idx < len(axes_list) else 0.0)
+            name: (
+                -(axes_list[idx] if idx < len(axes_list) else 0.0)
+                if idx in self._axis_reverse
+                else (axes_list[idx] if idx < len(axes_list) else 0.0)
+            )
             for idx, name in self._axis_map.items()
         }
         buttons = {
-            name: (buttons_list[idx] if idx < len(buttons_list) else 0)
+            name: (
+                1 - (buttons_list[idx] if idx < len(buttons_list) else 0)
+                if idx in self._button_invert
+                else (buttons_list[idx] if idx < len(buttons_list) else 0)
+            )
             for idx, name in self._btn_map.items()
         }
 

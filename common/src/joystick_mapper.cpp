@@ -51,6 +51,8 @@ std::unordered_map<int, std::string> buildAxisInverse(const M& am) {
 JoystickMapper::JoystickMapper(const JoystickConfig& config)
   : button_inverse_(buildButtonInverse(config.button_map))
   , axis_inverse_(buildAxisInverse(config.axis_map))
+  , button_invert_(config.button_invert.begin(), config.button_invert.end())
+  , axis_reverse_(config.axis_reverse.begin(), config.axis_reverse.end())
 {
   // Collect sorted names for iteration
   for (const auto& [idx, name] : button_inverse_) {
@@ -66,15 +68,19 @@ MappedJoystickData JoystickMapper::map(const JoystickData& raw) const {
   out.timestamp_ns = raw.timestamp_ns;
 
   for (const auto& [idx, name] : button_inverse_) {
-    out.buttons[name] = (idx < static_cast<int>(raw.buttons.size()))
-                             ? raw.buttons[idx]
-                             : 0;
+    int val = (idx < static_cast<int>(raw.buttons.size()))
+                  ? raw.buttons[idx]
+                  : 0;
+    if (button_invert_.count(idx)) val = 1 - val;
+    out.buttons[name] = val;
   }
 
   for (const auto& [idx, name] : axis_inverse_) {
-    out.axes[name] = (idx < static_cast<int>(raw.axes.size()))
-                         ? raw.axes[idx]
-                         : 0.0f;
+    float val = (idx < static_cast<int>(raw.axes.size()))
+                    ? raw.axes[idx]
+                    : 0.0f;
+    if (axis_reverse_.count(idx)) val = -val;
+    out.axes[name] = val;
   }
 
   return out;

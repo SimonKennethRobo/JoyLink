@@ -39,7 +39,7 @@ joylink:
     right_stick_y: 2
     left_trigger: 5
     right_trigger: 4
-    dpad_x: 6
-    dpad_y: 7
+    dpad_x: 7
+    dpad_y: 6
 
-  axis_reverse: [0, 1, 3]
+  axis_reverse: [0, 1, 2, 3, 6, 7]

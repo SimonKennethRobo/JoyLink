@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "joystick_common/types.h"
@@ -48,6 +49,8 @@ private:
 
   std::unordered_map<int, std::string> button_inverse_;
   std::unordered_map<int, std::string> axis_inverse_;
+  std::unordered_set<int> button_invert_;
+  std::unordered_set<int> axis_reverse_;
   std::vector<std::string> button_names_;
   std::vector<std::string> axis_names_;
 };

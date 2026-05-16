@@ -113,8 +113,8 @@ Processing behavior:
 
 - Axis values are normalized to `[-1.0, 1.0]`.
 - Deadzone is applied with linear rescaling outside the deadzone.
-- `axis_reverse` multiplies selected physical axes by `-1`.
-- `button_invert` flips selected physical button states.
+- `axis_reverse` multiplies selected physical axes by `-1` in the client mapper.
+- `button_invert` flips selected physical button states in the client mapper.
 - `sticky_buttons` can turn button presses into toggle-style state changes.
 - `coalesce_interval` batches bursts of input events before publishing.
 - `publish_rate` provides autorepeat heartbeats even when no new event arrives.

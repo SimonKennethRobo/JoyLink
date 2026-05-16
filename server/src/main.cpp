@@ -5,7 +5,6 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
-#include <unordered_set>
 
 #include <fcntl.h>
 #include <linux/joystick.h>
@@ -91,9 +90,6 @@ int main(int argc, char* argv[]) {
   data.axes.resize(device.numAxes(), 0.0f);
   data.buttons.resize(device.numButtons(), 0);
 
-  // Build lookup sets for reverse/invert
-  std::unordered_set<int> axis_rev_set(config.axis_reverse.begin(), config.axis_reverse.end());
-  std::unordered_set<int> btn_inv_set(config.button_invert.begin(), config.button_invert.end());
 
   const int64_t publish_interval_us = static_cast<int64_t>(1'000'000.0 / config.publish_rate);
   const int64_t coalesce_interval_us = static_cast<int64_t>(config.coalesce_interval * 1'000'000.0);
@@ -145,7 +141,6 @@ int main(int argc, char* argv[]) {
         case JS_EVENT_BUTTON:
           if (ev.number < static_cast<int>(data.buttons.size())) {
             int val = ev.value;
-            if (btn_inv_set.count(ev.number)) val = 1 - val;
             if (config.sticky_buttons) {
               if (val == 1)
                 data.buttons[ev.number] = 1 - data.buttons[ev.number];
@@ -163,7 +158,6 @@ int main(int argc, char* argv[]) {
           if (ev.number < static_cast<int>(data.axes.size())) {
             float raw = static_cast<float>(ev.value) / 32767.0f;
             raw = applyDeadzone(raw, static_cast<float>(config.deadzone));
-            if (axis_rev_set.count(ev.number)) raw = -raw;
             data.axes[ev.number] = std::clamp(raw, -1.0f, 1.0f);
           }
           dirty = true;
