@@ -134,3 +134,17 @@ if (client.receive(data)) {
 ```
 
 Python 示例位于 `client/python/`。
+
+## 🐍 Python 安装（可编辑）
+
+在仓库根目录执行：
+
+```bash
+pip install -e .
+```
+
+可选依赖：
+
+```bash
+pip install -e ".[dds]"   # DDS 后端
+```

@@ -16,7 +16,7 @@ joylink:
   zmq:
     address: "tcp://*:5555"
 
-  debug_raw: false
+  debug_raw: true
 
   button_mapping:
     a: 0
@@ -31,14 +31,16 @@ joylink:
     start: -1
     back: -1
     guide: -1
+    f1: 10
+    f2: 11
 
   axes_mapping:
     left_stick_x: 1
     left_stick_y: 0
     right_stick_x: 3
     right_stick_y: 2
-    left_trigger: 5
-    right_trigger: 4
+    lt: 5
+    rt: 4
     dpad_x: 7
     dpad_y: 6
 

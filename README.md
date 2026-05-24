@@ -134,3 +134,17 @@ if (client.receive(data)) {
 ```
 
 Python examples live in `client/python/`.
+
+## 🐍 Python install (editable)
+
+From the repo root:
+
+```bash
+pip install -e .
+```
+
+Optional extras:
+
+```bash
+pip install -e ".[dds]"   # DDS backend
+```

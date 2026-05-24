@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joylink-client"
+version = "0.1.0"
+description = "Python client for JoyLink"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["PyYAML>=5.1","pyzmq>=25.0"]
+
+[project.optional-dependencies]
+dds = ["cyclonedds==0.10.5"]
+
+[tool.setuptools]
+py-modules = ["joystick_client"]
+
+[tool.setuptools.package-dir]
+"" = "client/python"
