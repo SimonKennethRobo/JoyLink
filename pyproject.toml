@@ -14,7 +14,7 @@ dependencies = ["PyYAML>=5.1","pyzmq>=25.0"]
 dds = ["cyclonedds==0.10.5"]
 
 [tool.setuptools]
-py-modules = ["joystick_client"]
+py-modules = ["joylink_client"]
 
 [tool.setuptools.package-dir]
 "" = "client/python"

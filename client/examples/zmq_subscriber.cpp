@@ -4,7 +4,7 @@
 //   cmake -S . -B build -DBUILD_ZMQ=ON
 //   cmake --build build
 // Run:
-//   ./build/client/joystick_client_example config/xbox.yaml
+//   ./build/client/joylink_client_example config/xbox.yaml
 
 #include <atomic>
 #include <csignal>
@@ -13,7 +13,7 @@
 #include <map>
 #include <sstream>
 
-#include "joystick_client/joystick_client.h"
+#include "joylink_client/joylink_client.h"
 
 std::atomic<bool> running{true};
 void signalHandler(int) { running = false; }
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
 
-  joystick_client::JoystickClient client(argv[1]);
+  joylink_client::JoylinkClient client(argv[1]);
   if (!client.connect()) {
     std::cerr << "Failed to connect" << std::endl;
     return 1;

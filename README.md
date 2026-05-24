@@ -44,7 +44,7 @@ Run the server:
 Run the ZMQ example client:
 
 ```bash
-./build/client/joystick_client_example config/zmq_pub.yaml
+./build/client/joylink_client_example config/zmq_pub.yaml
 ```
 
 ## 🔌 Backends
@@ -121,9 +121,9 @@ button/axis indices. A mapping value of `-1` disables that logical control.
 ## 🧑‍💻 Client API
 
 ```cpp
-#include "joystick_client/joystick_client.h"
+#include "joylink_client/joylink_client.h"
 
-joystick_client::JoystickClient client("config/zmq_pub.yaml");
+joylink_client::JoylinkClient client("config/zmq_pub.yaml");
 client.connect();
 
 joystick_common::MappedJoystickData data;

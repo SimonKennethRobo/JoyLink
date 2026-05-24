@@ -1,13 +1,13 @@
-"""JoystickClient — Python client for JoyLink.
+"""JoylinkClient — Python client for JoyLink.
 
 Supports ZMQ (SUB), ROS2 (rclpy), and CycloneDDS backends.
 Receives raw channel arrays and maps them to semantic key-value pairs
 using the same YAML configuration file.
 
 Usage:
-    from joystick_client import JoystickClient
+    from joylink_client import JoylinkClient
 
-    client = JoystickClient("config/xbox.yaml")
+    client = JoylinkClient("config/xbox.yaml")
     while True:
         data = client.receive(timeout_ms=1000)
         if data:
@@ -22,7 +22,7 @@ from collections import deque
 import yaml
 
 
-class JoystickClient:
+class JoylinkClient:
     def __init__(self, yaml_path: str):
         """Load YAML config and build button/axes inverse mapping."""
         with open(yaml_path) as f:
@@ -84,7 +84,7 @@ class JoystickClient:
 
     # ── Data access ───────────────────────────────────────────────────
 
-    def receive(self, timeout_ms: int = 1000) -> dict | None:
+    def receive(self, timeout_ms: int = 1000):
         """Blocking read from background queue with timeout.
 
         Return format:
@@ -100,7 +100,7 @@ class JoystickClient:
             return None
         return self._map(raw)
 
-    def receive_raw(self, timeout_ms: int = 1000) -> dict | None:
+    def receive_raw(self, timeout_ms: int = 1000):
         """Receive raw data without mapping. Returns dict or None on timeout."""
         if not self._connected:
             return None
@@ -187,7 +187,7 @@ class JoystickClient:
                 self._queue.append(data)
                 self._cv.notify()
 
-    def _pop_queue(self, timeout_ms: int) -> dict | None:
+    def _pop_queue(self, timeout_ms: int) -> dict:
         deadline = None
         if timeout_ms >= 0:
             deadline = time.monotonic() + timeout_ms / 1000.0
@@ -211,9 +211,11 @@ class JoystickClient:
 # Backend implementations
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class _ZmqBackend:
     def __init__(self, address: str):
         import zmq
+
         self._zmq = zmq
         addr = address.replace("//*", "//localhost")
         self._address = addr
@@ -223,16 +225,16 @@ class _ZmqBackend:
     def connect(self):
         self._sock.setsockopt_string(self._zmq.SUBSCRIBE, "")
         self._sock.connect(self._address)
-        print(f"JoystickClient[ZMQ]: connected to {self._address}")
+        print(f"JoylinkClient[ZMQ]: connected to {self._address}")
 
     def disconnect(self):
         self._sock.close()
         self._ctx.term()
 
-    def receive(self, timeout_ms: int) -> dict | None:
+    def receive(self, timeout_ms: int) -> dict:
         self._sock.setsockopt(self._zmq.RCVTIMEO, timeout_ms)
         try:
-            self._sock.recv_string()         # topic frame (discard)
+            self._sock.recv_string()  # topic frame (discard)
             body = self._sock.recv_string()  # JSON payload
         except self._zmq.Again:
             return None
@@ -247,16 +249,12 @@ class _Ros2Backend:
         if not rclpy.ok():
             rclpy.init()
 
-        self._node = rclpy.create_node("joystick_client")
+        self._node = rclpy.create_node("joylink_client")
         self._queue = deque()
         self._lock = threading.Lock()
         self._topic = topic
 
-        self._sub = self._node.create_subscription(
-            Joy, topic,
-            lambda msg: self._on_msg(msg),
-            10
-        )
+        self._sub = self._node.create_subscription(Joy, topic, lambda msg: self._on_msg(msg), 10)
         self._executor = None
         self._spin_thread = None
         self._running = False
@@ -285,7 +283,7 @@ class _Ros2Backend:
 
         self._spin_thread = threading.Thread(target=spin, daemon=True)
         self._spin_thread.start()
-        print(f"JoystickClient[ROS2]: subscribed to {self._topic}")
+        print(f"JoylinkClient[ROS2]: subscribed to {self._topic}")
 
     def disconnect(self):
         self._running = False
@@ -295,7 +293,7 @@ class _Ros2Backend:
             self._executor.shutdown()
         self._node.destroy_node()
 
-    def receive(self, timeout_ms: int) -> dict | None:
+    def receive(self, timeout_ms: int) -> dict:
         deadline = time.monotonic() + timeout_ms / 1000.0
         while time.monotonic() < deadline:
             with self._lock:
@@ -313,6 +311,7 @@ class _DdsBackend:
     Build against the same CycloneDDS install as the server:
       CMAKE_PREFIX_PATH=$CYCLONEDDS_HOME pip install cyclonedds==0.10.5
     """
+
     def __init__(self, topic: str):
         self._topic = topic
         self._reader = None
@@ -327,18 +326,22 @@ class _DdsBackend:
             from cyclonedds.idl import make_idl_struct
             from cyclonedds.idl.types import bounded_str, sequence, float32, int32, uint64
 
-            self._JoyData = make_idl_struct("JoyData", "joy_data::JoyData", {
-                "axes": sequence[float32],
-                "buttons": sequence[int32],
-                "timestamp_ns": uint64,
-                "frame_id": bounded_str[32],
-            })
+            self._JoyData = make_idl_struct(
+                "JoyData",
+                "joy_data::JoyData",
+                {
+                    "axes": sequence[float32],
+                    "buttons": sequence[int32],
+                    "timestamp_ns": uint64,
+                    "frame_id": bounded_str[32],
+                },
+            )
 
             self._participant = DomainParticipant()
             self._topic_obj = Topic(self._participant, self._topic, self._JoyData)
             self._subscriber = Subscriber(self._participant)
             self._reader = DataReader(self._subscriber, self._topic_obj)
-            print(f"JoystickClient[DDS]: subscribed to {self._topic}")
+            print(f"JoylinkClient[DDS]: subscribed to {self._topic}")
 
         except ImportError:
             raise RuntimeError(
@@ -352,7 +355,7 @@ class _DdsBackend:
         if self._participant:
             del self._participant
 
-    def receive(self, timeout_ms: int) -> dict | None:
+    def receive(self, timeout_ms: int) -> dict:
         import time
 
         deadline = time.monotonic() + timeout_ms / 1000.0

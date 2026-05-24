@@ -44,7 +44,7 @@ cmake --build build -j$(nproc)
 运行 ZMQ 示例客户端：
 
 ```bash
-./build/client/joystick_client_example config/zmq_pub.yaml
+./build/client/joylink_client_example config/zmq_pub.yaml
 ```
 
 ## 🔌 发布后端
@@ -121,9 +121,9 @@ joylink:
 ## 🧑‍💻 客户端 API
 
 ```cpp
-#include "joystick_client/joystick_client.h"
+#include "joylink_client/joylink_client.h"
 
-joystick_client::JoystickClient client("config/zmq_pub.yaml");
+joylink_client::JoylinkClient client("config/zmq_pub.yaml");
 client.connect();
 
 joystick_common::MappedJoystickData data;

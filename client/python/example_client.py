@@ -9,7 +9,7 @@ Usage:
 
 import sys
 import signal
-from joystick_client import JoystickClient
+from joylink_client import JoylinkClient
 
 running = True
 
@@ -64,7 +64,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    client = JoystickClient(sys.argv[1])
+    client = JoylinkClient(sys.argv[1])
     client.connect()
 
     print("\033[2J\033[H")  # clear screen

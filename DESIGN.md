@@ -137,12 +137,12 @@ Each backend is guarded by compile definitions:
 If the YAML requests a backend that was not compiled in, `createPublisher()`
 throws a runtime error with the matching rebuild option.
 
-### `joystick_client`
+### `joylink_client`
 
 Files:
 
-- `client/include/joystick_client/joystick_client.h`
-- `client/src/joystick_client.cpp`
+- `client/include/joylink_client/joylink_client.h`
+- `client/src/joylink_client.cpp`
 - `client/examples/zmq_subscriber.cpp`
 - `client/python/`
 
@@ -182,10 +182,10 @@ joystick_common
    |         v
    |    joylink
    |
-   +--> joystick_client  (when ZMQ is enabled)
+   +--> joylink_client  (when ZMQ is enabled)
              |
              v
-        joystick_client_example
+        joylink_client_example
 ```
 
 DDS dependencies are fetched into:

@@ -1,4 +1,4 @@
-#include "joystick_client/joystick_client.h"
+#include "joylink_client/joylink_client.h"
 
 #include <zmq.hpp>
 
@@ -12,7 +12,7 @@
 
 #include "joystick_common/config_parser.h"
 
-namespace joystick_client {
+namespace joylink_client {
 
 namespace {
 
@@ -73,7 +73,7 @@ bool parseRawJson(const std::string& body, joystick_common::JoystickData& out) {
 
 }  // namespace
 
-struct JoystickClient::Impl {
+struct JoylinkClient::Impl {
   joystick_common::JoystickConfig cfg;
   joystick_common::JoystickMapper mapper;
   zmq::context_t ctx;
@@ -141,18 +141,18 @@ struct JoystickClient::Impl {
   }
 };
 
-JoystickClient::JoystickClient(const std::string& yaml_path) {
+JoylinkClient::JoylinkClient(const std::string& yaml_path) {
   impl_ = std::make_unique<Impl>(yaml_path);
   impl_->cfg.print();
 }
 
-JoystickClient::~JoystickClient() { disconnect(); }
+JoylinkClient::~JoylinkClient() { disconnect(); }
 
-bool JoystickClient::connect() {
+bool JoylinkClient::connect() {
   if (impl_->connected) return true;
 
   if (impl_->cfg.publisher_type != joystick_common::PublisherType::ZMQ) {
-    std::cerr << "JoystickClient: only ZMQ publisher is supported" << std::endl;
+    std::cerr << "JoylinkClient: only ZMQ publisher is supported" << std::endl;
     return false;
   }
 
@@ -168,15 +168,15 @@ bool JoystickClient::connect() {
     impl_->sock.connect(addr);
     impl_->connected = true;
     impl_->startReceiver();
-    std::cout << "JoystickClient: connected to " << addr << std::endl;
+    std::cout << "JoylinkClient: connected to " << addr << std::endl;
   } catch (const zmq::error_t& e) {
-    std::cerr << "JoystickClient: connect failed: " << e.what() << std::endl;
+    std::cerr << "JoylinkClient: connect failed: " << e.what() << std::endl;
     return false;
   }
   return true;
 }
 
-void JoystickClient::disconnect() {
+void JoylinkClient::disconnect() {
   if (!impl_->connected) return;
 
   try {
@@ -192,9 +192,9 @@ void JoystickClient::disconnect() {
   impl_->queue_cv.notify_all();
 }
 
-bool JoystickClient::isConnected() const { return impl_->connected; }
+bool JoylinkClient::isConnected() const { return impl_->connected; }
 
-bool JoystickClient::receive(joystick_common::MappedJoystickData& out, int timeout_ms) {
+bool JoylinkClient::receive(joystick_common::MappedJoystickData& out, int timeout_ms) {
   joystick_common::JoystickData raw;
   if (!receiveRaw(raw, timeout_ms)) return false;
 
@@ -203,7 +203,7 @@ bool JoystickClient::receive(joystick_common::MappedJoystickData& out, int timeo
   return true;
 }
 
-bool JoystickClient::receiveRaw(joystick_common::JoystickData& out, int timeout_ms) {
+bool JoylinkClient::receiveRaw(joystick_common::JoystickData& out, int timeout_ms) {
   if (!impl_->connected) return false;
 
   std::unique_lock<std::mutex> lock(impl_->queue_mutex);
@@ -222,12 +222,12 @@ bool JoystickClient::receiveRaw(joystick_common::JoystickData& out, int timeout_
   return true;
 }
 
-const joystick_common::JoystickConfig& JoystickClient::config() const {
+const joystick_common::JoystickConfig& JoylinkClient::config() const {
   return impl_->cfg;
 }
 
-const joystick_common::JoystickMapper& JoystickClient::mapper() const {
+const joystick_common::JoystickMapper& JoylinkClient::mapper() const {
   return impl_->mapper;
 }
 
-}  // namespace joystick_client
+}  // namespace joylink_client

@@ -5,12 +5,12 @@
 
 #include "joystick_common/joystick_mapper.h"
 
-namespace joystick_client {
+namespace joylink_client {
 
 // High-level client for receiving mapped joystick data.
 //
 // Usage:
-//   JoystickClient client("config/xbox.yaml");
+//   JoylinkClient client("config/xbox.yaml");
 //   while (true) {
 //       joystick_common::MappedJoystickData data;
 //       if (client.receive(data)) {
@@ -18,15 +18,15 @@ namespace joystick_client {
 //           bool  a  = data.buttons["a"];
 //       }
 //   }
-class JoystickClient {
+class JoylinkClient {
 public:
   // Load config from YAML. Throws std::runtime_error on failure.
-  explicit JoystickClient(const std::string& yaml_path);
+  explicit JoylinkClient(const std::string& yaml_path);
 
-  ~JoystickClient();
+  ~JoylinkClient();
 
-  JoystickClient(const JoystickClient&) = delete;
-  JoystickClient& operator=(const JoystickClient&) = delete;
+  JoylinkClient(const JoylinkClient&) = delete;
+  JoylinkClient& operator=(const JoylinkClient&) = delete;
 
   // ── Connection ──────────────────────────────────────────
   // Connect to the server (address from YAML). Call once after construction.
@@ -57,4 +57,4 @@ private:
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace joystick_client
+}  // namespace joylink_client
